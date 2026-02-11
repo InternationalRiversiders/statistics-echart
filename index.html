@@ -50,9 +50,20 @@
     <script>
         // 配置区
         const title = 'RiverSide {date} 发帖量统计'; // 标题格式，{data} 将被替换为具体日期
+        // 统计RiverSide总和时不统计如下频道
+        const RiverSideSumBlackList = [
+            '俊峰河畔'
+        ];
+        // 指定的线样式
+        const knownStyles = {
+            'RiverSide总和': {
+                type: 'dotted'
+            }
+        };
         // 以下频道的颜色固定，未声明的将自动分配颜色
         const knownColors = {
             '俊峰河畔': '#2174f1',
+            'RiverSide总和': 'red',
             'RiverSide': '#13457a',
             '校友广场': '#b3b5b4',
             '二手交流': '#f7941d'
@@ -269,6 +280,35 @@
                     }
                 }
             });
+            // 计算 "RiverSide总和"
+            const sumChannelName = 'RiverSide总和';
+            const whitelistedChannels = Object.keys(postDict).filter(
+                channel => !RiverSideSumBlackList.includes(channel)
+            );
+            if (whitelistedChannels.length > 0) {
+                const sumArray = new Array(maxDays).fill(0); // 初始化为 0
+                let hasAnyData = false;
+
+                for (let dayIndex = 0; dayIndex < maxDays; dayIndex++) {
+                    let daySum = 0;
+                    let hasValueToday = false;
+
+                    for (const channel of whitelistedChannels) {
+                        const val = postDict[channel][dayIndex];
+                        if (val != null && !isNaN(val)) {
+                            daySum += val;
+                            hasValueToday = true;
+                            hasAnyData = true;
+                        }
+                    }
+                    // 只有当天至少有一个有效值，才记录 sum；否则保持 undefined（不显示）
+                    sumArray[dayIndex] = hasValueToday ? daySum : undefined;
+                }
+                // 只有当至少有一天有数据时，才加入总和线
+                if (hasAnyData) {
+                    postDict[sumChannelName] = sumArray;
+                }
+            }
 
             return postDict;
         };
@@ -294,12 +334,18 @@
             );
             // 构建 series
             option.series = channels.map(channel => {
-                return {
+                let baseConfig = {
                     name: channel,
                     type: 'line',
                     color: knownColors[channel] || null, // null 表示由 ECharts 自动决定，一般出现在临时频道
                     data: postDict[channel] // 直接使用数组，包含 null 值
                 };
+                const styleOverride = knownStyles[channel] || {};
+                if (Object.keys(styleOverride).length > 0) {
+                    baseConfig.lineStyle = styleOverride;
+                }
+
+                return baseConfig;
             });
             // 自定义 tooltip，只显示有值的项
             option.tooltip = {
