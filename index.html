@@ -55,7 +55,7 @@
             '俊峰河畔'
         ];
         // 指定的线样式
-        const knownStyles = {
+        const knownLineStyles = {
             'RiverSide总和': {
                 type: 'dotted'
             }
@@ -68,6 +68,12 @@
             '校友广场': '#b3b5b4',
             '二手交流': '#f7941d'
         }
+        // 配色版，未出现在上面的频道将按顺序使用下面的颜色
+        const basePalette = [
+            '#00ff00', '#00ffff', '#800080', '#ee82ee', 'a52a2a',
+
+            '#006400', '8b4513'
+        ];
         // 曾用名及曾用时间，改名后无需修改原来的旧数据，只需在此处添加记录即可。
         // 当前仅作占位，无实际用途
         // const renamed = {};
@@ -338,15 +344,20 @@
                     name: channel,
                     type: 'line',
                     color: knownColors[channel] || null, // null 表示由 ECharts 自动决定，一般出现在临时频道
-                    data: postDict[channel] // 直接使用数组，包含 null 值
+                    data: postDict[channel], // 直接使用数组，包含 null 值
+                    symbol: 'circle',
+                    itemStyle: {
+                        opacity: 1
+                    }
                 };
-                const styleOverride = knownStyles[channel] || {};
+                const styleOverride = knownLineStyles[channel] || {};
                 if (Object.keys(styleOverride).length > 0) {
                     baseConfig.lineStyle = styleOverride;
                 }
 
                 return baseConfig;
             });
+            option.color = basePalette;
             // 自定义 tooltip，只显示有值的项
             option.tooltip = {
                 trigger: 'axis',
