@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Stacked Line Chart - Apache ECharts Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        #chart-container {
+            position: relative;
+            height: 100vh;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="chart-container"></div>
+    <script src="https://echarts.apache.org/en/js/vendors/echarts/dist/echarts.min.js"></script>
+    <script>
+        let dom = document.getElementById('chart-container');
+        let myChart = echarts.init(dom, null, {
+            renderer: 'canvas',
+            useDirtyRect: false
+        });
+        let app = {};
+
+
+        let option;
+
+        option = {
+            title: {
+                text: '发帖量统计'
+            },
+            tooltip: {
+                trigger: 'axis'
+            },
+            legend: {
+                data: ['俊峰河畔', 'RiverSide', 'RiverSide主聊天室', 'RiverSide二手消息']
+            },
+            grid: {
+                left: '3%',
+                right: '4%',
+                bottom: '8%',
+                containLabel: true
+            },
+            toolbox: {
+                feature: {
+                    saveAsImage: {}
+                }
+            },
+            xAxis: {
+                type: 'category',
+                boundaryGap: false,
+                data: [
+                    '2026-01-30',
+                    '2026-01-31',
+                    '2026-02-01',
+                    '2026-02-02',
+                    '2026-02-03',
+                    '2026-02-04',
+                    '2026-02-05'
+                ]
+            },
+            yAxis: {
+                type: 'value'
+            },
+            series: [
+                {
+                    name: '俊峰河畔',
+                    type: 'line',
+                    color: 'red',
+                    data: [1035, 768, 921, 825, 627, 678, 865, 713, 510, 555, 551]
+                },
+                {
+                    name: 'RiverSide',
+                    type: 'line',
+                    color: 'lightblue',
+                    data: [1604, 935, 850, 1090, 1161, 1102, 1154, 1178, 635, 705, 663]
+                },
+                {
+                    name: 'RiverSide主聊天室',
+                    type: 'line',
+                    color: 'lightgreen',
+                    data: [1922, 425, 263, 342, 503, 504, 202, 434, 94, 222, 397]
+                },
+                {
+                    name: 'RiverSide二手消息',
+                    type: 'line',
+                    color: 'grey',
+                    data: [0, 0, 901, 131, 23, 9, 39, 26, 14, 16, 10]
+                }
+            ]
+        };
+
+
+        if (option && typeof option === 'object') {
+            myChart.setOption(option);
+        }
+
+        window.addEventListener('resize', myChart.resize);
+    </script>
+</body>
+
+</html>

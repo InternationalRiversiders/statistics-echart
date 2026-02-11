@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 
 <head>
     <meta charset="utf-8">
-    <title>Stacked Line Chart - Apache ECharts Demo</title>
+    <title>RiverSide 发帖量统计</title>
     <style>
         * {
             margin: 0;
@@ -15,32 +15,160 @@
             height: 100vh;
             overflow: hidden;
         }
+
+        #date-selector-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 16px auto;
+            width: fit-content;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        #date-selector-container b {
+            font-weight: 600;
+        }
+
+        #date-selector-container select,
+        #date-selector-container button {
+            padding: 4px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        #date-selector-container button {
+            background: #f5f5f5;
+            cursor: pointer;
+        }
+
+        #date-selector-container button:hover {
+            background: #e9e9e9;
+        }
     </style>
+    <script>
+        // 配置区
+        const title = 'RiverSide {date} 发帖量统计'; // 标题格式，{data} 将被替换为具体日期
+        // 统计RiverSide总和时不统计如下频道
+        const RiverSideSumBlackList = [
+            '俊峰河畔'
+        ];
+        // 指定的线样式
+        const knownStyles = {
+            'RiverSide总和': {
+                type: 'dotted'
+            }
+        };
+        // 以下频道的颜色固定，未声明的将自动分配颜色
+        const knownColors = {
+            '俊峰河畔': '#2174f1',
+            'RiverSide总和': 'red',
+            'RiverSide': '#13457a',
+            '校友广场': '#b3b5b4',
+            '二手交流': '#f7941d'
+        }
+        // 曾用名及曾用时间，改名后无需修改原来的旧数据，只需在此处添加记录即可。
+        // 当前仅作占位，无实际用途
+        // const renamed = {};
+    </script>
 </head>
 
 <body>
     <div id="chart-container"></div>
-    <script src="https://echarts.apache.org/en/js/vendors/echarts/dist/echarts.min.js"></script>
+    <div id="date-selector-container">
+        <b>查看其他月份</b>
+        <select id="year-selector"></select>
+        <select id="month-selector"></select>
+        <button onclick="reDraw()">确认</button>
+    </div>
     <script>
-        let dom = document.getElementById('chart-container');
-        let myChart = echarts.init(dom, null, {
+        /* 全局变量 */
+        const startYear = 2026;
+        const startMonth = 1;
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
+        const [nowYearStr, nowMonthStr] = dateStr.split('/');
+        const nowYear = parseInt(nowYearStr);
+        const nowMonth = parseInt(nowMonthStr);
+        const yearSelector = document.getElementById('year-selector');
+        const monthSelector = document.getElementById('month-selector');
+
+        /**
+         * 生成并处理日期选择器，列出所有可用的年月组合并自动防止选到不存在的日期。
+         * 自动选择最新的一个日期。
+        */
+        !function () {
+            const availableMonths = {};
+            for (let y = startYear; y <= nowYear; y++) {
+                if (y === startYear && y === nowYear) {
+                    availableMonths[y] = Array.from(
+                        { length: nowMonth - startMonth + 1 },
+                        (_, i) => startMonth + i
+                    );
+                } else if (y === startYear) {
+                    availableMonths[y] = Array.from(
+                        { length: 12 - startMonth + 1 },
+                        (_, i) => startMonth + i
+                    );
+                } else if (y === nowYear) {
+                    availableMonths[y] = Array.from(
+                        { length: nowMonth },
+                        (_, i) => i + 1
+                    );
+                } else {
+                    availableMonths[y] = Array.from({ length: 12 }, (_, i) => i + 1);
+                }
+            }
+
+            const years = Object.keys(availableMonths)
+                .map(Number)
+                .sort((a, b) => b - a);
+            years.forEach(year => {
+                const opt = document.createElement('option');
+                opt.value = year;
+                opt.textContent = year;
+                yearSelector.appendChild(opt);
+            });
+            const defaultYear = years[0];
+            yearSelector.value = defaultYear;
+            function renderMonths(year) {
+                monthSelector.innerHTML = '';
+                const months = availableMonths[year] || [];
+                months.forEach(month => {
+                    const opt = document.createElement('option');
+                    opt.value = month;
+                    opt.textContent = month.toString().padStart(2, '0');
+                    monthSelector.appendChild(opt);
+                });
+                if (months.length > 0) {
+                    monthSelector.value = months[months.length - 1];
+                }
+            }
+            renderMonths(defaultYear);
+            yearSelector.addEventListener('change', () => {
+                renderMonths(Number(yearSelector.value));
+            });
+        }();
+    </script>
+    <script src="https://echarts.apache.org/en/js/vendors/echarts/dist/echarts.min.js"></script>
+    <script></script>
+    <script>
+        const chartContainer = document.getElementById('chart-container');
+        const postChart = echarts.init(chartContainer, null, {
             renderer: 'canvas',
             useDirtyRect: false
         });
-        let app = {};
 
-
-        let option;
-
-        option = {
+        const option_template = {
             title: {
-                text: '发帖量统计'
+                text: '' // 根据 title 自动生成
             },
             tooltip: {
                 trigger: 'axis'
             },
             legend: {
-                data: ['俊峰河畔', 'RiverSide', 'RiverSide主聊天室', 'RiverSide二手消息']
+                data: [] // 图例根据数据自动添加
             },
             grid: {
                 left: '3%',
@@ -56,54 +184,221 @@
             xAxis: {
                 type: 'category',
                 boundaryGap: false,
-                data: [
-                    '2026-01-30',
-                    '2026-01-31',
-                    '2026-02-01',
-                    '2026-02-02',
-                    '2026-02-03',
-                    '2026-02-04',
-                    '2026-02-05'
-                ]
+                data: [] // 日期根据数据自动添加
             },
             yAxis: {
                 type: 'value'
             },
-            series: [
-                {
-                    name: '俊峰河畔',
-                    type: 'line',
-                    color: 'red',
-                    data: [1035, 768, 921, 825, 627, 678, 865, 713, 510, 555, 551]
-                },
-                {
-                    name: 'RiverSide',
-                    type: 'line',
-                    color: 'lightblue',
-                    data: [1604, 935, 850, 1090, 1161, 1102, 1154, 1178, 635, 705, 663]
-                },
-                {
-                    name: 'RiverSide主聊天室',
-                    type: 'line',
-                    color: 'lightgreen',
-                    data: [1922, 425, 263, 342, 503, 504, 202, 434, 94, 222, 397]
-                },
-                {
-                    name: 'RiverSide二手消息',
-                    type: 'line',
-                    color: 'grey',
-                    data: [0, 0, 901, 131, 23, 9, 39, 26, 14, 16, 10]
-                }
-            ]
+            series: [] // 发帖量根据数据自动添加
         };
 
+        /**
+         * @param {string} date - yyyy-mm 格式的日期
+         * @returns {string} 获取的数据文件字符串
+        */
+        async function _getData(date) {
+            const url = `data/${date}.txt`;
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`获取 ${date} 的数据失败：${response.status} ${response.statusText}`);
+            }
+            return await response.text();
+        };
 
-        if (option && typeof option === 'object') {
-            myChart.setOption(option);
+        /**
+         * @param {string} selectedDateStr - 选择的日期字符串
+         * @param {string} dataText - 获取的数据文件字符串
+         * 
+         * @returns {Object} postDict - 处理好后的 postDict
+         * 
+        */
+        function _parseData(selectedDateStr, dataText) {
+            // 预处理文本
+            dataText = dataText.replace(/\r\n/g, '\n').replace(/\r/g, '\n'); // 统一换行符为 \n
+            dataText = dataText.replace(/\/\/.*$/gm, ''); // 去除注释
+            dataText = dataText.replace(/[ \t]+$/gm, ''); // 去除每一行尾随空白字符
+            dataText = dataText.replace(/\n{2,}/g, '\n\n'); // 压缩连续的超2个换行符为2个
+            dataText = dataText.trim();
+            let blocks = dataText.split('\n\n');
+            blocks = blocks.filter(b => b.trim() !== '');
+            if (blocks.length < 2) {
+                throw new Error(`数据文件应至少包含2个块，当前${blocks.length}块`);
+            }
+            const metadata = blocks[0];
+            if (metadata !== selectedDateStr) {
+                throw new Error(`数据文件名中的日期(${selectedDateStr})与文件中声明的日期(${metadata})不符`);
+            }
+
+            blocks = blocks.slice(1);
+            let postDict = {};
+            const maxDays = getDays(selectedDateStr);
+            blocks.forEach(function (block) {
+                const lines = block.split('\n').filter(line => line.trim() !== '');
+                if (lines.length === 0) return;
+
+                // 解析 header
+                const headerLine = lines[0].trim();
+                if (!headerLine.startsWith('d,')) {
+                    throw new Error(`数据块必须以 'd,' 开头，实际: "${headerLine}"`);
+                }
+                const headers = headerLine.substring(2).split(',').map(h => h.trim()).filter(h => h !== '');
+
+                // 初始化每个频道的数组（全 null）
+                headers.forEach(channel => {
+                    if (!postDict[channel]) {
+                        postDict[channel] = Array(maxDays); // 缺失的数据点为存储为 undefined
+                    }
+                });
+
+                // 解析数据行
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (line === '') continue;
+                    const parts = line.split(',').map(p => p.trim());
+                    const dayStr = parts[0];
+                    const day = parseInt(dayStr, 10);
+
+                    if (isNaN(day)) {
+                        throw new Error(`无效的日期值: "${dayStr}"`);
+                    }
+                    if (day < 1 || day > maxDays) {
+                        throw new Error(`日期 ${day} 超出范围 [1, ${maxDays}]`);
+                    }
+
+                    // 从第1列开始对应 headers
+                    for (let j = 0; j < headers.length; j++) {
+                        const valStr = parts[j + 1];
+                        if (valStr === undefined || valStr === '') {
+                            // 无值保持 null
+                            continue;
+                        }
+                        const val = parseInt(valStr, 10);
+                        if (isNaN(val)) {
+                            throw new Error(`频道 "${headers[j]}" 在第 ${day} 天的值不是有效整数: "${valStr}"`);
+                        }
+                        postDict[headers[j]][day - 1] = val;
+                    }
+                }
+            });
+            // 计算 "RiverSide总和"
+            const sumChannelName = 'RiverSide总和';
+            const whitelistedChannels = Object.keys(postDict).filter(
+                channel => !RiverSideSumBlackList.includes(channel)
+            );
+            if (whitelistedChannels.length > 0) {
+                const sumArray = new Array(maxDays).fill(0); // 初始化为 0
+                let hasAnyData = false;
+
+                for (let dayIndex = 0; dayIndex < maxDays; dayIndex++) {
+                    let daySum = 0;
+                    let hasValueToday = false;
+
+                    for (const channel of whitelistedChannels) {
+                        const val = postDict[channel][dayIndex];
+                        if (val != null && !isNaN(val)) {
+                            daySum += val;
+                            hasValueToday = true;
+                            hasAnyData = true;
+                        }
+                    }
+                    // 只有当天至少有一个有效值，才记录 sum；否则保持 undefined（不显示）
+                    sumArray[dayIndex] = hasValueToday ? daySum : undefined;
+                }
+                // 只有当至少有一天有数据时，才加入总和线
+                if (hasAnyData) {
+                    postDict[sumChannelName] = sumArray;
+                }
+            }
+
+            return postDict;
+        };
+
+        /**
+         * @param {string} selectedDateStr - 选择的日期字符串
+         * @param {Object} postDict - 处理好后的 postDict
+         * 
+         * @return {Object} option - 可用于绘图的option
+        */
+        function _setOption(selectedDateStr, postDict) {
+            // 深拷贝基础配置（避免污染全局 options）
+            const option = JSON.parse(JSON.stringify(option_template));
+            // 设置标题
+            option.title.text = title.replace('{date}', selectedDateStr);
+            // 获取所有频道名
+            const channels = Object.keys(postDict);
+            option.legend.data = channels;
+            // 生成 xAxis 数据：1 到 maxDays，格式为 '01', '02', ...
+            const maxDays = postDict[channels[0]] ? postDict[channels[0]].length : getDays(selectedDateStr);
+            option.xAxis.data = Array.from({ length: maxDays }, (_, i) =>
+                (i + 1).toString().padStart(2, '0')
+            );
+            // 构建 series
+            option.series = channels.map(channel => {
+                let baseConfig = {
+                    name: channel,
+                    type: 'line',
+                    color: knownColors[channel] || null, // null 表示由 ECharts 自动决定，一般出现在临时频道
+                    data: postDict[channel] // 直接使用数组，包含 null 值
+                };
+                const styleOverride = knownStyles[channel] || {};
+                if (Object.keys(styleOverride).length > 0) {
+                    baseConfig.lineStyle = styleOverride;
+                }
+
+                return baseConfig;
+            });
+            // 自定义 tooltip，只显示有值的项
+            option.tooltip = {
+                trigger: 'axis',
+                formatter: function (params) {
+                    // params 是当前 X 轴位置的所有系列数据点数组
+                    const x_date = params[0]?.name || '';
+                    let tooltipHtml = `${selectedDateStr}-${x_date}<br/>`;
+                    // 只保留 value 不为 null/undefined 的项
+                    const validParams = params.filter(param =>
+                        param.value != null && !isNaN(param.value)
+                    );
+                    validParams.forEach(param => {
+                        tooltipHtml += `${param.marker} ${param.seriesName}: ${param.value}<br/>`;
+                    });
+                    return tooltipHtml;
+                }
+            };
+
+            return option;
         }
 
-        window.addEventListener('resize', myChart.resize);
+        function getDays(selectedDateStr) {
+            let [selectedYear, selectedMonth] = selectedDateStr.split('-');
+            selectedMonth = parseInt(selectedMonth);
+            selectedYear = parseInt(selectedYear);
+            const dayList = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+            let r = dayList[selectedMonth - 1];
+            if (selectedMonth === 2 && ((selectedYear % 4 === 0 && selectedYear % 100 !== 0) || selectedYear % 400 === 0)) {
+                r = 29;
+            }
+            return r;
+        };
+
+        /**
+         * 将按照日期选择框的结果请求数据并渲染图表
+        */
+        async function reDraw() {
+            const selectedDateStr = `${yearSelector.value}-${monthSelector.value.padStart(2, '0')}`;
+
+            try {
+                const dataText = await _getData(selectedDateStr);
+                const postDict = _parseData(selectedDateStr, dataText);
+                const option = _setOption(selectedDateStr, postDict);
+                postChart.clear();
+                postChart.setOption(option);
+            } catch (error) {
+                console.error('重绘图表失败:', error);
+                // 获取具体的错误消息（优先用 error.message）
+                const message = error.message || '未知错误';
+                alert(message);
+            }
+        }
+        document.addEventListener('DOMContentLoaded', reDraw);
     </script>
 </body>
-
-</html>
