@@ -67,7 +67,7 @@
             'RiverSide总和': 'red',
             'RiverSide': '#13457a',
             '校友广场': '#b3b5b4',
-            '二手交流': '#f7941d'
+            '推广专区': '#f7941d'
         }
         // 配色版，未出现在上面的频道将按顺序使用下面的颜色
         const basePalette = [
@@ -75,9 +75,15 @@
 
             '#006400', '8b4513'
         ];
-        // 曾用名及曾用时间，改名后无需修改原来的旧数据，只需在此处添加记录即可。
-        // 当前仅作占位，无实际用途
-        // const renamed = {};
+        // 曾用名及曾用时间，改名后无需修改原来的旧数据，只需在此处添加记录即可
+        const renamed = {
+            '推广专区': [
+                {
+                    oldName: '二手交流',
+                    end: '2026-03-02'
+                }
+            ]
+        };
     </script>
 </head>
 
@@ -220,6 +226,39 @@
          * 
         */
         function _parseData(selectedDateStr, dataText) {
+            // 根据原始频道名 + 完整日期，返回当前频道名
+            function resolveChannelName(originalChannel, fullDate) {
+                for (const [currentName, historyList] of Object.entries(renamed || {})) {
+                    for (const record of historyList) {
+                        if (
+                            originalChannel === record.oldName &&
+                            isDateInRange(fullDate, record)
+                        ) {
+                            return currentName;
+                        }
+                    }
+                }
+                return originalChannel;
+            }
+            function isDateInRange(fullDate, record) {
+                function compareDate(a, b) {
+                    return a === b ? 0 : (a < b ? -1 : 1);
+                }
+                const { start, end } = record;
+                // 如果只有 end：表示 (-∞, end]
+                if (end !== undefined && start === undefined) {
+                    return compareDate(fullDate, end) <= 0;
+                }
+                // 如果只有 start：表示 [start, +∞)
+                if (start !== undefined && end === undefined) {
+                    return compareDate(fullDate, start) >= 0;
+                }
+                // 如果两者都有：[start, end]
+                if (start !== undefined && end !== undefined) {
+                    return compareDate(fullDate, start) >= 0 && compareDate(fullDate, end) <= 0;
+                }
+                return false;
+            }
             // 预处理文本
             dataText = dataText.replace(/\r\n/g, '\n').replace(/\r/g, '\n'); // 统一换行符为 \n
             dataText = dataText.replace(/\/\/.*$/gm, ''); // 去除注释
@@ -250,12 +289,7 @@
                 }
                 const headers = headerLine.substring(2).split(',').map(h => h.trim()).filter(h => h !== '');
 
-                // 初始化每个频道的数组（全 null）
-                headers.forEach(channel => {
-                    if (!postDict[channel]) {
-                        postDict[channel] = Array(maxDays); // 缺失的数据点为存储为 undefined
-                    }
-                });
+                // 不再提前初始化 postDict[channel] —— 改为按需初始化
 
                 // 解析数据行
                 for (let i = 1; i < lines.length; i++) {
@@ -271,19 +305,24 @@
                     if (day < 1 || day > maxDays) {
                         throw new Error(`日期 ${day} 超出范围 [1, ${maxDays}]`);
                     }
+                    const fullDate = `${selectedDateStr}-${String(day).padStart(2, '0')}`;
+                    const dayIndex = day - 1;
 
                     // 从第1列开始对应 headers
                     for (let j = 0; j < headers.length; j++) {
                         const valStr = parts[j + 1];
                         if (valStr === undefined || valStr === '') {
-                            // 无值保持 null
                             continue;
                         }
                         const val = parseInt(valStr, 10);
                         if (isNaN(val)) {
                             throw new Error(`频道 "${headers[j]}" 在第 ${day} 天的值不是有效整数: "${valStr}"`);
                         }
-                        postDict[headers[j]][day - 1] = val;
+                        const currentName = resolveChannelName(headers[j], fullDate);  // 解析当前名称
+                        if (!postDict[currentName]) {
+                            postDict[currentName] = Array(maxDays).fill(undefined);
+                        }
+                        postDict[currentName][dayIndex] = val;
                     }
                 }
             });
